@@ -21,6 +21,7 @@ internal sealed class FilePlan
     public required string ProposedName { get; init; }
     public required string Status { get; init; }
     public long? Number { get; init; }
+    public bool HasNumber { get; init; }
     public bool HasChange => !string.Equals(OriginalName, ProposedName, StringComparison.Ordinal);
 }
 
@@ -167,7 +168,7 @@ internal sealed class MainForm : Form
                     found.Add(new FilePlan
                     {
                         OriginalPath = path, OriginalName = name, ProposedName = name,
-                        Status = "Sin número: intacto", Number = null
+                        Status = "Sin número: intacto", Number = null, HasNumber = false
                     });
                     continue;
                 }
@@ -181,17 +182,18 @@ internal sealed class MainForm : Form
                     OriginalName = name,
                     ProposedName = proposed,
                     Status = string.Equals(name, proposed, StringComparison.Ordinal) ? "Ya correcto" : "Listo para cambiar",
-                    Number = number
+                    Number = number,
+                    HasNumber = true
                 });
             }
 
-            foreach (var item in found.OrderBy(p => p.Number is null)
+            foreach (var item in found.OrderBy(p => !p.HasNumber)
                          .ThenBy(p => p.Number ?? long.MaxValue)
                          .ThenBy(p => p.OriginalName, StringComparer.OrdinalIgnoreCase))
                 plans.Add(item);
 
             var changes = plans.Count(p => p.HasChange);
-            var skipped = plans.Count(p => p.Number is null);
+            var skipped = plans.Count(p => !p.HasNumber);
             statusLabel.Text = $"{plans.Count} archivos encontrados · {changes} cambios propuestos · {skipped} sin número (se dejan intactos).";
             applyButton.Enabled = changes > 0;
         }
