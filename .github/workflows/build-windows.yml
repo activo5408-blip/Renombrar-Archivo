@@ -1,0 +1,26 @@
+name: Compilar Renombrar archivos
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Preparar .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Compilar C++ y C#
+        shell: pwsh
+        run: .\build.ps1
+      - name: Publicar aplicación compilada
+        uses: actions/upload-artifact@v4
+        with:
+          name: Renombrar-Archivos-Windows-x64
+          path: publish/
+          if-no-files-found: error
