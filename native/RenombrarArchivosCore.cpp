@@ -39,6 +39,54 @@ REN_EXPORT int REN_CALL NormalizeNumberPrefix(
     std::wstring name(stem);
     if (name.empty()) return 0;
 
+    // Case 0: descriptive Spanish/English episode names, e.g.
+    // "Ver You - Temporada 2 Episodio 3 - EntrePeliculasySeries"
+    // "Ver You- Temporada 2 Capitulo 1 Online Latino HD - Pelisplus".
+    // Extract the number that follows an episode/chapter word, regardless of
+    // whether the season number appears before it. Keep the complete original
+    // title so source/site information is not lost.
+    {
+        std::wstring lowerName = name;
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+            [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+        const wchar_t* episodeWords[] = {
+            L"episodio", L"episodios", L"capitulo", L"capítulos", L"capitulo", L"capítulos",
+            L"episode", L"episodes", L"chapter", L"chapters"
+        };
+        size_t bestNumberStart = std::wstring::npos;
+        for (const wchar_t* word : episodeWords) {
+            size_t pos = 0;
+            const std::wstring needle(word);
+            while ((pos = lowerName.find(needle, pos)) != std::wstring::npos) {
+                size_t p = pos + needle.size();
+                while (p < lowerName.size() && is_space(lowerName[p])) ++p;
+                if (p < lowerName.size() && (lowerName[p] == L'.' || lowerName[p] == L'#' || lowerName[p] == L':')) {
+                    ++p;
+                    while (p < lowerName.size() && is_space(lowerName[p])) ++p;
+                }
+                size_t numberStart = p;
+                while (p < lowerName.size() && lowerName[p] >= L'0' && lowerName[p] <= L'9') ++p;
+                if (p > numberStart) {
+                    bestNumberStart = numberStart;
+                    break;
+                }
+                pos += needle.size();
+            }
+            if (bestNumberStart != std::wstring::npos) break;
+        }
+        if (bestNumberStart != std::wstring::npos) {
+            size_t numberEnd = bestNumberStart;
+            while (numberEnd < name.size() && name[numberEnd] >= L'0' && name[numberEnd] <= L'9') ++numberEnd;
+            std::wstring digits = normalize_digits(name.substr(bestNumberStart, numberEnd - bestNumberStart));
+            std::wstring result = digits + L" - " + name;
+            if (result.size() + 1 <= static_cast<size_t>(outputCount)) {
+                std::wmemcpy(output, result.c_str(), result.size() + 1);
+                return 1;
+            }
+            return 0;
+        }
+    }
+
     // Case 1: TV episode names such as "S03E01 [Personalizar AVI 320x240 XVID]".
     // Use the episode number (E01 -> 001), omit the season/episode marker,
     // and preserve the remaining title. This keeps separate episodes distinct.
