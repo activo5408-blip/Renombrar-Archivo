@@ -164,7 +164,6 @@ internal sealed class MainForm : Form
             Description = "Busca la carpeta y revisa su contenido antes de seleccionarla",
             UseDescriptionForTitle = true,
             ShowNewFolderButton = false,
-            ShowFiles = true,
             InitialDirectory = Directory.Exists(selectedFolder)
                 ? selectedFolder
                 : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
