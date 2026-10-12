@@ -19,6 +19,7 @@ internal sealed class FilePlan
     public required string OriginalPath { get; init; }
     public required string OriginalName { get; init; }
     public required string ProposedName { get; init; }
+    public required string RelativeFolder { get; init; }
     public required string Status { get; init; }
     public long? Number { get; init; }
     public bool HasNumber { get; init; }
@@ -50,6 +51,7 @@ internal sealed class MainForm : Form
     private readonly Label statusLabel = new();
     private readonly Button applyButton = new();
     private readonly BindingList<FilePlan> plans = new();
+    private readonly CheckBox includeSubfolders = new();
     private string? selectedFolder;
 
     public MainForm()
@@ -59,9 +61,10 @@ internal sealed class MainForm : Form
         MinimumSize = new Size(800, 480);
         Size = new Size(1050, 650);
         Font = new Font("Segoe UI", 9F);
-        BackColor = Color.FromArgb(246, 248, 251);
+        BackColor = Color.FromArgb(20, 24, 33);
+        ForeColor = Color.FromArgb(232, 237, 245);
 
-        var header = new Panel { Dock = DockStyle.Top, Height = 124, Padding = new Padding(18, 14, 18, 8) };
+        var header = new Panel { Dock = DockStyle.Top, Height = 154, Padding = new Padding(18, 14, 18, 8), BackColor = Color.FromArgb(27, 33, 45) };
         var title = new Label
         {
             Text = "Renombrar archivos",
@@ -73,27 +76,38 @@ internal sealed class MainForm : Form
         {
             Text = "El número se obtiene del nombre original, nunca de la posición en la lista. Ejemplo: 8 → 008.",
             AutoSize = true,
-            ForeColor = Color.FromArgb(80, 91, 105),
+            ForeColor = Color.FromArgb(166, 180, 201),
             Location = new Point(20, 52)
         };
-        folderBox.ReadOnly = true;
+        folderBox.ReadOnly = false;
         folderBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         folderBox.Location = new Point(18, 82);
         folderBox.Width = 650;
         folderBox.Height = 30;
-        folderBox.BackColor = Color.White;
+        folderBox.BackColor = Color.FromArgb(14, 18, 26);
+        folderBox.ForeColor = Color.FromArgb(235, 240, 248);
+        folderBox.BorderStyle = BorderStyle.FixedSingle;
+        folderBox.PlaceholderText = "Pega aquí la dirección de la carpeta";
         var chooseButton = new Button { Text = "Elegir carpeta…", Width = 130, Height = 30, Anchor = AnchorStyles.Top | AnchorStyles.Right };
         chooseButton.Location = new Point(680, 81);
         chooseButton.Click += (_, _) => ChooseFolder();
-        var refreshButton = new Button { Text = "Actualizar", Width = 95, Height = 30, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+        var refreshButton = new Button { Text = "Abrir ruta", Width = 95, Height = 30, Anchor = AnchorStyles.Top | AnchorStyles.Right };
         refreshButton.Location = new Point(818, 81);
-        refreshButton.Click += (_, _) => ScanFolder();
-        header.Controls.AddRange([title, subtitle, folderBox, chooseButton, refreshButton]);
+        refreshButton.Click += (_, _) => { selectedFolder = folderBox.Text.Trim().Trim('"'); ScanFolder(); };
+        includeSubfolders.Text = "Incluir archivos de las subcarpetas";
+        includeSubfolders.AutoSize = true;
+        includeSubfolders.Location = new Point(20, 119);
+        includeSubfolders.ForeColor = Color.FromArgb(190, 205, 225);
+        includeSubfolders.BackColor = Color.Transparent;
+        includeSubfolders.Checked = true;
+        includeSubfolders.CheckedChanged += (_, _) => ScanFolder();
+        header.Controls.AddRange([title, subtitle, folderBox, chooseButton, refreshButton, includeSubfolders]);
         header.Resize += (_, _) =>
         {
             folderBox.Width = Math.Max(100, header.ClientSize.Width - 365);
             chooseButton.Location = new Point(header.ClientSize.Width - 322, 81);
             refreshButton.Location = new Point(header.ClientSize.Width - 184, 81);
+            includeSubfolders.Location = new Point(20, 119);
         };
 
         grid.Dock = DockStyle.Fill;
@@ -104,17 +118,28 @@ internal sealed class MainForm : Form
         grid.MultiSelect = false;
         grid.RowHeadersVisible = false;
         grid.AutoGenerateColumns = false;
-        grid.BackgroundColor = Color.White;
+        grid.BackgroundColor = Color.FromArgb(18, 23, 32);
+        grid.GridColor = Color.FromArgb(53, 64, 82);
+        grid.EnableHeadersVisualStyles = false;
+        grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(37, 48, 66);
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(235, 240, 248);
+        grid.DefaultCellStyle.BackColor = Color.FromArgb(23, 30, 42);
+        grid.DefaultCellStyle.ForeColor = Color.FromArgb(224, 232, 244);
+        grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(40, 105, 160);
+        grid.DefaultCellStyle.SelectionForeColor = Color.White;
+        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(29, 37, 51);
         grid.BorderStyle = BorderStyle.FixedSingle;
         grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Carpeta", DataPropertyName = nameof(FilePlan.RelativeFolder), FillWeight = 70 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Nombre original", DataPropertyName = nameof(FilePlan.OriginalName), FillWeight = 100 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Nombre propuesto", DataPropertyName = nameof(FilePlan.ProposedName), FillWeight = 100 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Estado", DataPropertyName = nameof(FilePlan.Status), FillWeight = 42 });
         grid.DataSource = plans;
 
-        var footer = new Panel { Dock = DockStyle.Bottom, Height = 72, Padding = new Padding(18, 12, 18, 12) };
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = 72, Padding = new Padding(18, 12, 18, 12), BackColor = Color.FromArgb(27, 33, 45) };
         statusLabel.Dock = DockStyle.Fill;
+        statusLabel.ForeColor = Color.FromArgb(190, 205, 225);
         statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         statusLabel.Text = "Elige una carpeta para ver la vista previa. No se cambia nada hasta confirmar.";
         statusLabel.AutoEllipsis = true;
@@ -147,6 +172,7 @@ internal sealed class MainForm : Form
 
     private void ScanFolder()
     {
+        selectedFolder = folderBox.Text.Trim().Trim('"');
         if (string.IsNullOrWhiteSpace(selectedFolder) || !Directory.Exists(selectedFolder))
         {
             MessageBox.Show(this, "Primero selecciona una carpeta válida.", "Renombrar archivos",
@@ -158,7 +184,7 @@ internal sealed class MainForm : Form
         {
             plans.Clear();
             var found = new List<FilePlan>();
-            foreach (var path in Directory.EnumerateFiles(selectedFolder, "*", SearchOption.TopDirectoryOnly))
+            foreach (var path in Directory.EnumerateFiles(selectedFolder, "*", includeSubfolders.Checked ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
             {
                 var name = Path.GetFileName(path);
                 var stem = Path.GetFileNameWithoutExtension(name);
@@ -168,6 +194,7 @@ internal sealed class MainForm : Form
                     found.Add(new FilePlan
                     {
                         OriginalPath = path, OriginalName = name, ProposedName = name,
+                        RelativeFolder = Path.GetRelativePath(selectedFolder, Path.GetDirectoryName(path)!),
                         Status = "Sin número: intacto", Number = null, HasNumber = false
                     });
                     continue;
@@ -181,6 +208,7 @@ internal sealed class MainForm : Form
                 found.Add(new FilePlan
                 {
                     OriginalPath = path,
+                    RelativeFolder = Path.GetRelativePath(selectedFolder, Path.GetDirectoryName(path)!),
                     OriginalName = name,
                     ProposedName = proposed,
                     Status = string.Equals(name, proposed, StringComparison.Ordinal) ? "Ya correcto" : "Listo para cambiar",
@@ -218,7 +246,7 @@ internal sealed class MainForm : Form
         if (changes.Count == 0 || selectedFolder is null) return;
 
         var comparer = StringComparer.OrdinalIgnoreCase;
-        var targets = changes.Select(p => Path.Combine(selectedFolder, p.ProposedName)).ToList();
+        var targets = changes.Select(p => Path.Combine(Path.GetDirectoryName(p.OriginalPath)!, p.ProposedName)).ToList();
         if (targets.Select(Path.GetFileName).Distinct(comparer).Count() != targets.Count)
         {
             MessageBox.Show(this, "Dos archivos acabarían con el mismo nombre. No se ha cambiado nada.",
@@ -258,7 +286,7 @@ internal sealed class MainForm : Form
 
             foreach (var entry in staged.ToList())
             {
-                var target = Path.Combine(selectedFolder, entry.Plan.ProposedName);
+                var target = Path.Combine(Path.GetDirectoryName(entry.Plan.OriginalPath)!, entry.Plan.ProposedName);
                 if (File.Exists(target)) throw new IOException($"El destino ya existe: {entry.Plan.ProposedName}");
                 File.Move(entry.TempPath, target);
                 staged.Remove(entry);
