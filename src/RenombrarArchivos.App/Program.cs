@@ -173,8 +173,10 @@ internal sealed class MainForm : Form
                     continue;
                 }
 
-                var digits = new string(stem.TrimStart().TakeWhile(char.IsDigit).ToArray());
-                long? number = long.TryParse(digits, out var parsed) ? parsed : null;
+                // Native engine places the number at the beginning of the proposed stem,
+                // including when the original number was attached to the end of its title.
+                var normalizedDigits = new string(normalized.TakeWhile(char.IsDigit).ToArray());
+                long? number = long.TryParse(normalizedDigits, out var parsed) ? parsed : null;
                 var proposed = normalized + Path.GetExtension(name);
                 found.Add(new FilePlan
                 {
