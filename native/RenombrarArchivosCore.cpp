@@ -50,7 +50,7 @@ REN_EXPORT int REN_CALL NormalizeNumberPrefix(
         std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
             [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
         const wchar_t* episodeWords[] = {
-            L"episodio", L"episodios", L"capitulo", L"capítulos", L"capitulo", L"capítulos",
+            L"episodio", L"episodios", L"capitulo", L"capítulo", L"capitulos", L"capítulos",
             L"episode", L"episodes", L"chapter", L"chapters"
         };
         size_t bestNumberStart = std::wstring::npos;
