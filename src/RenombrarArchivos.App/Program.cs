@@ -247,7 +247,7 @@ internal sealed class MainForm : Form
 
         var comparer = StringComparer.OrdinalIgnoreCase;
         var targets = changes.Select(p => Path.Combine(Path.GetDirectoryName(p.OriginalPath)!, p.ProposedName)).ToList();
-        if (targets.Select(Path.GetFileName).Distinct(comparer).Count() != targets.Count)
+        if (targets.Distinct(comparer).Count() != targets.Count)
         {
             MessageBox.Show(this, "Dos archivos acabarían con el mismo nombre. No se ha cambiado nada.",
                 "Conflicto de nombres", MessageBoxButtons.OK, MessageBoxIcon.Warning);
