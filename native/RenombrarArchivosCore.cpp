@@ -39,7 +39,40 @@ REN_EXPORT int REN_CALL NormalizeNumberPrefix(
     std::wstring name(stem);
     if (name.empty()) return 0;
 
-    // Case 1: number at the beginning, optionally followed by spaces and
+    // Case 1: TV episode names such as "S03E01 [Personalizar AVI 320x240 XVID]".
+    // Use the episode number (E01 -> 001), omit the season/episode marker,
+    // and preserve the remaining title. This keeps separate episodes distinct.
+    size_t episodeStart = 0;
+    while (episodeStart < name.size() && is_space(name[episodeStart])) ++episodeStart;
+    if (episodeStart < name.size() &&
+        (name[episodeStart] == L'S' || name[episodeStart] == L's')) {
+        size_t seasonEnd = episodeStart + 1;
+        while (seasonEnd < name.size() && name[seasonEnd] >= L'0' && name[seasonEnd] <= L'9') ++seasonEnd;
+        if (seasonEnd > episodeStart + 1 && seasonEnd < name.size() &&
+            (name[seasonEnd] == L'E' || name[seasonEnd] == L'e')) {
+            size_t episodeEnd = seasonEnd + 1;
+            while (episodeEnd < name.size() && name[episodeEnd] >= L'0' && name[episodeEnd] <= L'9') ++episodeEnd;
+            if (episodeEnd > seasonEnd + 1 &&
+                (episodeEnd == name.size() || is_space(name[episodeEnd]) || is_separator(name[episodeEnd]) ||
+                 name[episodeEnd] == L'[' || name[episodeEnd] == L'(')) {
+                std::wstring episodeDigits = name.substr(seasonEnd + 1, episodeEnd - seasonEnd - 1);
+                std::wstring episodeTitle = name.substr(episodeEnd);
+                while (!episodeTitle.empty() &&
+                       (is_space(episodeTitle.front()) || is_separator(episodeTitle.front())))
+                    episodeTitle.erase(episodeTitle.begin());
+                std::wstring episodeResult = normalize_digits(episodeDigits);
+                if (!episodeTitle.empty()) {
+                    episodeResult += L" - ";
+                    episodeResult += episodeTitle;
+                }
+                if (episodeResult.size() + 1 > static_cast<size_t>(outputCount)) return 0;
+                std::wmemcpy(output, episodeResult.c_str(), episodeResult.size() + 1);
+                return 1;
+            }
+        }
+    }
+
+    // Case 2: number at the beginning, optionally followed by spaces and
     // a separator. Examples: "8 - Title", "008_Title", "25.Title".
     size_t begin = 0;
     while (begin < name.size() && is_space(name[begin])) ++begin;
@@ -58,7 +91,7 @@ REN_EXPORT int REN_CALL NormalizeNumberPrefix(
         }
         title = name.substr(rest);
     } else {
-        // Case 2: number at the end, even when attached to the title.
+        // Case 3: number at the end, even when attached to the title.
         // Examples: "Title8", "Title 008", "Title_25", "Title-103".
         size_t suffixStart = name.size();
         while (suffixStart > 0 && name[suffixStart - 1] >= L'0' && name[suffixStart - 1] <= L'9') --suffixStart;
