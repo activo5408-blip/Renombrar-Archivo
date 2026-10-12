@@ -12,7 +12,7 @@
 #endif
 
 static bool is_space(wchar_t c) {
-    return c == L' ' || c == L'\\t' || c == L'\\r' || c == L'\\n';
+    return c == L' ' || c == L'\t' || c == L'\r' || c == L'\n';
 }
 
 static bool is_separator(wchar_t c) {
@@ -35,7 +35,7 @@ REN_EXPORT int REN_CALL NormalizeNumberPrefix(
     int outputCount
 ) {
     if (!stem || !output || outputCount <= 0) return 0;
-    output[0] = L'\\0';
+    output[0] = L'\0';
     std::wstring name(stem);
     if (name.empty()) return 0;
 
