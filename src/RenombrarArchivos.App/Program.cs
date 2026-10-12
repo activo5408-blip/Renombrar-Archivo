@@ -45,143 +45,6 @@ internal static class NativeCore
 }
 
 
-internal sealed class FolderPickerForm : Form
-{
-    private readonly TextBox pathBox = new();
-    private readonly ListView contents = new();
-    private readonly Label info = new();
-    public string? SelectedFolder { get; private set; }
-    private string currentPath;
-
-    public FolderPickerForm(string startPath)
-    {
-        currentPath = Directory.Exists(startPath) ? startPath : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        Text = "Explorar carpetas";
-        StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(820, 570);
-        MinimumSize = new Size(650, 420);
-        BackColor = Color.FromArgb(20, 24, 33);
-        ForeColor = Color.FromArgb(232, 237, 245);
-        Font = new Font("Segoe UI", 9F);
-
-        var top = new Panel { Dock = DockStyle.Top, Height = 72, Padding = new Padding(12), BackColor = Color.FromArgb(27, 33, 45) };
-        pathBox.Dock = DockStyle.Fill;
-        pathBox.Text = currentPath;
-        pathBox.BackColor = Color.FromArgb(14, 18, 26);
-        pathBox.ForeColor = Color.FromArgb(235, 240, 248);
-        pathBox.BorderStyle = BorderStyle.FixedSingle;
-        var go = new Button { Text = "Ir", Dock = DockStyle.Right, Width = 60 };
-        go.Click += (_, _) => Navigate(pathBox.Text.Trim().Trim('"'));
-        top.Controls.Add(pathBox);
-        top.Controls.Add(go);
-
-        contents.Dock = DockStyle.Fill;
-        contents.View = View.Details;
-        contents.FullRowSelect = true;
-        contents.HideSelection = false;
-        contents.MultiSelect = false;
-        contents.BorderStyle = BorderStyle.None;
-        contents.BackColor = Color.FromArgb(18, 23, 32);
-        contents.ForeColor = Color.FromArgb(224, 232, 244);
-        contents.Columns.Add("Nombre", 420);
-        contents.Columns.Add("Tipo", 120);
-        contents.Columns.Add("Tamaño", 120);
-        contents.DoubleClick += (_, _) =>
-        {
-            if (contents.SelectedItems.Count == 0) return;
-            var item = contents.SelectedItems[0];
-            if (item.Tag is string folder && Directory.Exists(folder)) Navigate(folder);
-        };
-
-        var bottom = new Panel { Dock = DockStyle.Bottom, Height = 66, Padding = new Padding(12), BackColor = Color.FromArgb(27, 33, 45) };
-        info.Dock = DockStyle.Fill;
-        info.TextAlign = ContentAlignment.MiddleLeft;
-        info.ForeColor = Color.FromArgb(190, 205, 225);
-        var up = new Button { Text = "↑ Subir", Dock = DockStyle.Left, Width = 90 };
-        up.Click += (_, _) =>
-        {
-            var parent = Directory.GetParent(currentPath);
-            if (parent != null) Navigate(parent.FullName);
-        };
-        var cancel = new Button { Text = "Cancelar", Dock = DockStyle.Right, Width = 90 };
-        cancel.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
-        var select = new Button { Text = "Seleccionar esta carpeta", Dock = DockStyle.Right, Width = 180 };
-        select.Click += (_, _) =>
-        {
-            if (!Directory.Exists(currentPath)) return;
-            SelectedFolder = currentPath;
-            DialogResult = DialogResult.OK;
-            Close();
-        };
-        bottom.Controls.Add(info);
-        bottom.Controls.Add(cancel);
-        bottom.Controls.Add(select);
-        bottom.Controls.Add(up);
-        Controls.Add(contents);
-        Controls.Add(bottom);
-        Controls.Add(top);
-        Navigate(currentPath);
-    }
-
-    private void Navigate(string path)
-    {
-        try
-        {
-            var full = Path.GetFullPath(path);
-            if (!Directory.Exists(full))
-            {
-                MessageBox.Show(this, "Esa carpeta no existe o no está disponible.", "Explorar carpetas",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            currentPath = full;
-            pathBox.Text = currentPath;
-            contents.BeginUpdate();
-            contents.Items.Clear();
-
-            var parent = Directory.GetParent(currentPath);
-            if (parent != null)
-            {
-                var upItem = new ListViewItem("..");
-                upItem.SubItems.Add("Carpeta superior");
-                upItem.SubItems.Add("");
-                upItem.Tag = parent.FullName;
-                contents.Items.Add(upItem);
-            }
-
-            foreach (var dir in Directory.EnumerateDirectories(currentPath).OrderBy(x => Path.GetFileName(x), StringComparer.OrdinalIgnoreCase))
-            {
-                var item = new ListViewItem("📁 " + Path.GetFileName(dir));
-                item.SubItems.Add("Carpeta");
-                item.SubItems.Add("");
-                item.Tag = dir;
-                contents.Items.Add(item);
-            }
-            foreach (var file in Directory.EnumerateFiles(currentPath).OrderBy(x => Path.GetFileName(x), StringComparer.OrdinalIgnoreCase))
-            {
-                var item = new ListViewItem(Path.GetFileName(file));
-                item.SubItems.Add("Archivo");
-                try { item.SubItems.Add(new FileInfo(file).Length.ToString("N0") + " bytes"); }
-                catch { item.SubItems.Add(""); }
-                item.Tag = file;
-                contents.Items.Add(item);
-            }
-            info.Text = $"{contents.Items.Count} elementos · doble clic en una carpeta para entrar";
-            contents.EndUpdate();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            MessageBox.Show(this, "No tienes permiso para ver el contenido de esta carpeta.", "Acceso denegado",
-                MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, $"No se pudo leer la carpeta:\n{ex.Message}", "Explorar carpetas",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-}
-
 internal sealed class MainForm : Form
 {
     private readonly TextBox folderBox = new();
@@ -296,9 +159,18 @@ internal sealed class MainForm : Form
 
     private void ChooseFolder()
     {
-        using var dialog = new FolderPickerForm(selectedFolder ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedFolder)) return;
-        selectedFolder = dialog.SelectedFolder;
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = "Busca la carpeta y revisa su contenido antes de seleccionarla",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = false,
+            ShowFiles = true,
+            InitialDirectory = Directory.Exists(selectedFolder)
+                ? selectedFolder
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        selectedFolder = dialog.SelectedPath;
         folderBox.Text = selectedFolder;
         ScanFolder();
     }
